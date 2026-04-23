@@ -1,0 +1,58 @@
+name: API Test with VPN
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-api-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+      
+      - name: Setup Shadowsocks VPN
+        run: |
+          # 1. Install required packages
+          sudo apt-get update
+          sudo apt-get install -y shadowsocks-libev netcat-openbsd
+          
+          # 2. Parse the ss:// URI from the secret
+          ss_uri="${{ secrets.SHADOWSOCKS_URI }}"
+          uri_body=${ss_uri#"ss://"}
+          user_info_b64=$(echo "$uri_body" | cut -d'@' -f1)
+          host_info=$(echo "$uri_body" | cut -d'@' -f2)
+          decoded_user_info=$(echo "$user_info_b64" | base64 -d)
+          method=$(echo "$decoded_user_info" | cut -d':' -f1)
+          password=$(echo "$decoded_user_info" | cut -d':' -f2-)
+          server_host=$(echo "$host_info" | cut -d':' -f1)
+          server_port=$(echo "$host_info" | cut -d':' -f2 | cut -d'/' -f1)
+          
+          # 3. Create the JSON config file on the fly
+          cat <<EOF > ./ss-config.json
+          {
+            "server": "${server_host}",
+            "server_port": ${server_port},
+            "local_address": "127.0.0.1",
+            "local_port": 1080,
+            "password": "${password}",
+            "method": "${method}"
+          }
+          EOF
+          
+          # 4. Start the client in the background
+          ss-local -c ./ss-config.json -v &
+          sleep 8 # Give it a moment to establish connection
+      
+      - name: Run API test
+        run: |
+          go run main.go \
+            -url="${{ secrets.API_URL }}" \
+            -app-id="${{ secrets.APP_ID }}" \
+            -secret-key="${{ secrets.SECRET_KEY }}" \
+            -total-requests=${{ secrets.TOTAL_REQUESTS }}
