@@ -20,7 +20,7 @@ jobs:
         run: |
           # 1. Install required packages
           sudo apt-get update
-          sudo apt-get install -y shadowsocks-libev netcat-openbsd
+          sudo apt-get install -y shadowsocks-libev netcat-openbsd proxychains4
           
           # 2. Parse the ss:// URI from the secret
           ss_uri="${{ secrets.SHADOWSOCKS_URI }}"
@@ -45,13 +45,26 @@ jobs:
           }
           EOF
           
-          # 4. Start the client in the background
+          # 4. Configure proxychains to use the SOCKS proxy
+          sudo cat <<EOF > /etc/proxychains4.conf
+          proxychains.conf version 4.0.1
+          strict_chain
+          quiet_mode
+          proxy_dns
+          remote_dns_subnet 224
+          tcp_read_time_out 15000
+          tcp_connect_time_out 8000
+          [ProxyList]
+          socks5 127.0.0.1 1080
+          EOF
+          
+          # 5. Start the client in the background
           ss-local -c ./ss-config.json -v &
           sleep 8 # Give it a moment to establish connection
       
       - name: Run API test
         run: |
-          go run main.go \
+          proxychains4 go run main.go \
             -url="${{ secrets.API_URL }}" \
             -app-id="${{ secrets.APP_ID }}" \
             -secret-key="${{ secrets.SECRET_KEY }}" \
