@@ -46,7 +46,7 @@ jobs:
           EOF
           
           # 4. Configure proxychains to use the SOCKS proxy
-          sudo cat <<EOF > /etc/proxychains4.conf
+          cat <<EOF > ./proxychains.conf
           proxychains.conf version 4.0.1
           strict_chain
           quiet_mode
@@ -64,7 +64,7 @@ jobs:
       
       - name: Run API test
         run: |
-          proxychains4 go run main.go \
+          proxychains4 -f ./proxychains.conf go run main.go \
             -url="${{ secrets.API_URL }}" \
             -app-id="${{ secrets.APP_ID }}" \
             -secret-key="${{ secrets.SECRET_KEY }}" \
