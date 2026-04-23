@@ -71,7 +71,7 @@ func main() {
 		}
 
 		// Sleep for a random time between 1 and 10 seconds
-		sleepSeconds := rand.Intn(4) + 1
+		sleepSeconds := rand.Intn(9) + 1
 		fmt.Printf("--> Waiting %d seconds before next call...\n\n", sleepSeconds)
 		time.Sleep(time.Duration(sleepSeconds) * time.Second)
 	}
